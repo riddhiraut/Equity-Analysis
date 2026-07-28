@@ -1,4 +1,4 @@
-# Multi-Asset Equity Analytics with SQL
+# Quantitative Equity & Index Analysis with SQL
 
 A compact analytics engine that computes performance and risk metrics for a basket of equities entirely in **SQL (DuckDB)**, running in a single Google Colab notebook. Python is used only to load data and draw charts on top of the SQL output.
 
