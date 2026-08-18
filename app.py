@@ -1,6 +1,7 @@
 import streamlit as st
 import duckdb
 import yfinance as yf
+import pandas as pd
 
 st.title("Multi-Asset Equity Analytics")
 
