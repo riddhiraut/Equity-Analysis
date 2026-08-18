@@ -9,7 +9,14 @@ ticker = st.selectbox("Select Asset", ["AAPL", "MSFT", "NVDA", "JPM"])
 days = st.slider("Select Days of History", 30, 365, 180)
 
 # fetch data
-df = yf.download(ticker, period=f"{days}d", auto_adjust=True)["Close"].reset_index()
+df = yf.download(ticker, period=f"{days}d", auto_adjust=True)
+
+# flatten multiindex columns so duckdb can read 'Close' properly
+if isinstance(df.columns, pd.MultiIndex):
+    df = df["Close"].reset_index()
+    df.columns = ["Date", "Close"]
+else:
+    df = df[["Close"]].reset_index()
 
 # duckdb sql uery
 con = duckdb.connect()
