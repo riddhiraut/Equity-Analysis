@@ -1,31 +1,44 @@
-# Quantitative Equity & Index Analysis with SQL
+# Quantitative Equity & Index Analytics Engine
 
-A compact analytics engine that computes performance and risk metrics for a basket of equities entirely in **SQL (DuckDB)**, running in a single Google Colab notebook. Python is used only to load data and draw charts on top of the SQL output.
+A multi-asset equity analytics suite that processes, models, and visualizes market performance and risk metrics. Powered by **DuckDB SQL** for core quantitative execution, the project is accessible via an interactive web application or a standalone analytical notebook.
 
-The goal is to answer the questions a markets or analytics team actually asks: how has each name performed, how risky is it, when did the trend flip, how deep were the drawdowns, which names lead on a risk-adjusted basis, and how correlated is everything.
+---
 
-## SQL techniques demonstrated
+## Interactive Web Application (`app.py`)
 
-Every metric below is computed in a SQL query:
-1. **Daily returns** using the `LAG` window function
-2. **Moving averages and a trend regime signal** with explicit window frames (`ROWS BETWEEN ... PRECEDING`)
-3. **Cumulative compounding** (growth of one dollar) via log returns, `EXP(SUM(LN(1 + r)))`
-4. **Rolling annualized volatility** using windowed `STDDEV_SAMP`
-5. **Drawdown and max drawdown** from a running peak (`MAX ... UNBOUNDED PRECEDING`)
-6. **Risk-adjusted leaderboard** ranking names by a simplified Sharpe ratio with `RANK()`
-7. **Sector performance rollups** with `GROUP BY` aggregation
-8. **Return correlation matrix** via a self-join and the `CORR` aggregate
+A user-facing dashboard built with **Streamlit** that executes dynamic DuckDB SQL queries over real-time market data fetched via `yfinance`.
 
-Together these cover the CTE, window function, running aggregate, ranking, join, and statistical aggregate patterns that analyst and analytics roles screen for.
+### Features & Capabilities
+* **Dynamic Querying:** Change parameters like stock tickers and window historical lookbacks on the fly.
+* **On-the-Fly SQL Execution:** Calculates moving averages and trend windows dynamically via DuckDB.
+* **Interactive Visualizations:** Interactive time-series price and trend overlays alongside structured raw tabular outputs.
 
-## Data
+---
 
-The notebook pulls real daily prices from Yahoo Finance (via `yfinance`) when run in Colab. If that call fails for any reason (offline, rate limit, API change), it falls back to a reproducible simulated dataset built from a market plus sector plus idiosyncratic factor model, so within-sector names stay more correlated than cross-sector ones. Either path produces the same schema, so the notebook always runs end to end.
+## SQL Analytics Engine (`notebook.ipynb`)
 
-Universe: 12 large-cap names across Technology, Financials, Energy, Consumer Staples, and Health Care.
+A compact quantitative analysis engine running entirely in **SQL (DuckDB)** inside a single notebook environment. Python is used purely to import raw price data and plot charts directly over SQL query results.
 
-## Possible future extensions
+The engine answers core quantitative market questions: historical asset performance, volatility, trend regime flips, drawdown depths, risk-adjusted performance rankings, and asset correlations.
 
-- Adding a benchmark (for example SPY) and compute beta and alpha per name
-- Turning the regime signal into a simple long-short strategy and backtest its cumulative return
-- Parameterizing the universe to accept any ticker list
+### SQL Techniques Demonstrated
+Every metric is computed directly through SQL queries:
+1. **Daily Returns:** Calculated via the `LAG` window function.
+2. **Moving Averages & Trend Regimes:** Built with explicit window frames (`ROWS BETWEEN ... PRECEDING`).
+3. **Cumulative Compounding:** Growth of $1 tracked via log returns (`EXP(SUM(LN(1 + r)))`).
+4. **Rolling Annualized Volatility:** Computed using windowed `STDDEV_SAMP`.
+5. **Drawdowns & Max Drawdown:** Computed from a running peak using `MAX() OVER (ROWS UNBOUNDED PRECEDING)`.
+6. **Risk-Adjusted Leaderboard:** Ranks assets by a simplified Sharpe ratio using `RANK()`.
+7. **Sector Performance Rollups:** Aggregated using grouped CTEs and `GROUP BY`.
+8. **Return Correlation Matrix:** Built using self-joins and the `CORR` statistical aggregate.
+
+Together, these patterns demonstrate key analytics concepts including CTEs, window functions, running aggregates, ranking, joins, and statistical functions.
+
+---
+
+## Possible Extensions
+
+* Deploy basic version of notebook as a web app (DONE, UPDATED)
+* Add a benchmark (e.g., SPY) to compute Jensen's Alpha and Beta per asset
+* Convert the SQL trend regime signal into an automated backtested trading strategy
+* Allow user-defined portfolio weights for basket-level risk calculation
