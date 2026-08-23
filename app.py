@@ -69,12 +69,17 @@ with st.sidebar:
 
 # 3) DATA LOADING (cached)
 
-@st.cache_data
+# temporarily remove caching to see the real error
 def load_data(tickers, start, end):
-    con = load_and_register_data(tickers, start, end)
-    # compute returns
-    compute_returns(con)
-    return con
+    try:
+        con = load_and_register_data(tickers, start, end)
+        compute_returns(con)
+        return con
+    except Exception as e:
+        st.error(f"🚨 Data loading failed: {e}")
+        st.stop()
+
+con = load_data(selected_tickers, start_date, end_date)
 
 # guard against empty selection
 if not selected_tickers:
