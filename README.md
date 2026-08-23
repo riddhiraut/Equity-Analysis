@@ -6,9 +6,9 @@
 
 **Current Status**
 
-Notebook: Multi-asset analytics engine using DuckDB SQL window functions, CTEs, and running aggregates to compute returns, volatility, drawdowns, and asset correlations.
+Notebook: Test environment for prototyping.
 
-WebApp: Live, multi-asset Streamlit dashboard executing the same DuckDB SQL analytics (including cumulative growth, moving-average regime signals, rolling volatility, drawdown analysis, risk-adjusted rankings, sector performance, and return correlations) on live Yahoo Finance data.
+WebApp: Live, deployed multi-asset Streamlit UI executing DuckDB SQL analytics (including cumulative growth, moving-average regime signals, rolling volatility, drawdown analysis, risk-adjusted rankings, sector performance, and return correlations) on live Yahoo Finance data.
 
 ---
 
