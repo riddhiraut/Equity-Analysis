@@ -6,10 +6,12 @@
 
 # 0) BASIC
 
+import yfinance as yf
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import duckdb
 from queries import (
     load_and_register_data,
     compute_returns,
@@ -70,20 +72,42 @@ with st.sidebar:
 # 3) DATA LOADING (cached)
 
 @st.cache_data
-def load_data(tickers, start, end):
-    """
-    Load data with caching for performance, but with a safety net.
-    If anything fails, show a clear error on the screen.
-    """
+def load_data_cached(tickers, start, end):
+    # download and cache the raw price data as a df.
     try:
-        con = load_and_register_data(tickers, start, end)
-        compute_returns(con)
-        return con
+        # download data from yf
+        df = yf.download(tickers, start=start, end=end, auto_adjust=True)["Close"]
+        df = df.reset_index()
+        # melt to long format
+        long = df.melt(id_vars="Date", var_name="ticker", value_name="close")
+        long = long.dropna(subset=["close"])
+        long = long.rename(columns={"Date": "date"})
+        long["date"] = pd.to_datetime(long["date"]).dt.date
+        return long
     except Exception as e:
-        st.error(f"🚨 Data loading failed: {e}")
+        st.error(f"🚨 Data download failed: {e}")
         st.stop()
 
-con = load_data(selected_tickers, start_date, end_date)
+def load_data(tickers, start, end):
+    # get the cached DataFrame
+    df = load_data_cached(tickers, start, end)
+    
+    # create a fresh duckDB connection (not cached)
+    con = duckdb.connect()
+    con.register("prices_raw", df)
+    
+    # create the prices table
+    con.execute("""
+        CREATE OR REPLACE TABLE prices AS
+        SELECT ticker, date, close
+        FROM prices_raw
+        ORDER BY ticker, date
+    """)
+    
+    # compute returns
+    compute_returns(con)
+    
+    return con
 
 # guard against empty selection
 if not selected_tickers:
@@ -93,25 +117,18 @@ if not selected_tickers:
 con = load_data(selected_tickers, start_date, end_date)
 
 # compute all metrics (cached per parameters)
-@st.cache_data
 def get_growth(_con):
     return compute_cumulative_growth(_con)
-@st.cache_data
 def get_volatility(_con, window):
     return compute_rolling_volatility(_con, window)
-@st.cache_data
 def get_drawdowns(_con):
     return compute_drawdowns(_con)
-@st.cache_data
 def get_max_drawdown(_con):
     return compute_max_drawdown(_con)
-@st.cache_data
 def get_ranking(_con):
     return compute_risk_ranking(_con)
-@st.cache_data
 def get_sector_stats(_con, sector_map):
     return compute_sector_stats(_con, sector_map)
-@st.cache_data
 def get_correlation(_con, tickers):
     return compute_correlation(_con, tickers)
 
