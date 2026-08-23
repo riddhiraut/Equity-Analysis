@@ -1,6 +1,6 @@
-# **Quantitative Equity Analytics Engine (WIP 🏗️)**
+# **Quantitative Equity Analytics Engine (Live | WIP 🏗️)**
 
-> A lightweight multi-asset equity engine and interactive dashboard powered by DuckDB SQL and Streamlit :)
+> A lightweight multi-asset equity engine and interactive dashboard powered by DuckDB SQL and Streamlit :) See Roadmap below for future additions
 
 ---
 
@@ -8,7 +8,7 @@
 
 Notebook: Multi-asset analytics engine using DuckDB SQL window functions, CTEs, and running aggregates to compute returns, volatility, drawdowns, and asset correlations.
 
-WebApp: Streamlit dashboard executing dynamic queries on live market data for real-time visualization and risk analysis.
+WebApp: Live, multi-asset Streamlit dashboard executing the same DuckDB SQL analytics (including cumulative growth, moving-average regime signals, rolling volatility, drawdown analysis, risk-adjusted rankings, sector performance, and return correlations) on live Yahoo Finance data.
 
 ---
 
@@ -21,5 +21,5 @@ Notebook:
 
 WebApp:
 - [x] Deploy initial Streamlit dynamic querying interface
-- [ ] Port full notebook statistical engine to the web dashboard
+- [x] Port notebook's SQL engine to the web dashboard
 - [ ] Add custom portfolio weighting for basket-level risk calculation
