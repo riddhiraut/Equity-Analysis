@@ -69,8 +69,12 @@ with st.sidebar:
 
 # 3) DATA LOADING (cached)
 
-# temporarily remove caching to see the real error
+@st.cache_data
 def load_data(tickers, start, end):
+    """
+    Load data with caching for performance, but with a safety net.
+    If anything fails, show a clear error on the screen.
+    """
     try:
         con = load_and_register_data(tickers, start, end)
         compute_returns(con)
