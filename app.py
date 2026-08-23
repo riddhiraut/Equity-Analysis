@@ -1,7 +1,5 @@
 # Multi-Asset Equity Analytics Dashboard
-# Interactive web interface for the DuckDB SQL analytics engine.
-# User controls: ticker selection, date range, window sizes.
-# Visualisations: growth curves, volatility, drawdowns, leaderboard, sector stats, correlation.
+# Interactive web interface for the DuckDB SQL analytics engine
 
 
 # 0) BASIC
@@ -40,7 +38,7 @@ TICKERS = list(UNIVERSE.keys())
 # 2) STREAMLIT CONFIG
 
 st.set_page_config(layout="wide")
-st.title("📈 Multi‑Asset Equity Analytics Dashboard")
+st.title("Multi‑Asset Equity Analytics Dashboard")
 
 # user controls
 with st.sidebar:
@@ -50,7 +48,7 @@ with st.sidebar:
     selected_tickers = st.multiselect(
         "Select Assets",
         options=TICKERS,
-        default=["AAPL", "MSFT", "NVDA", "JPM"]  # default subset from the original app
+        default=TICKERS
     )
 
     # date range
@@ -145,11 +143,11 @@ corr_mat = get_correlation(con, selected_tickers)
 # 4) TABS: organise output by theme
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🌱 Growth & Trends",
-    "💹 Volatility & Drawdown",
-    "⛳️ Risk‑Adjusted Rankings",
-    "🧩 Sector Summary",
-    "🔋 Correlation"
+    "🌱  Growth & Trends",
+    "💹  Volatility & Drawdown",
+    "⛳️  Risk‑Adjusted Rankings",
+    "🧩  Sector Summary",
+    "🔋  Correlation"
 ])
 
 # growth & trends (sections 2 & 3 from notebook)
@@ -228,6 +226,7 @@ with tab5:
         sns.heatmap(
             corr_mat,
             annot=True,
+            fmt='.2f',
             cmap="RdYlBu_r",
             vmin=-0.2,
             vmax=1.0,
