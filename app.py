@@ -35,11 +35,11 @@ TICKERS = list(UNIVERSE.keys())
 # 2) STREAMLIT CONFIG
 
 st.set_page_config(layout="wide")
-st.title("Multi‑Asset Equity Analytics Dashboard")
+st.title("Multi‑Asset Equity Analytics")
 
 # user controls
 with st.sidebar:
-    st.header("⚙️ Controls")
+    st.header("⚙️\u2003Controls")
 
     selected_tickers = st.multiselect(
         "Select Assets",
@@ -54,7 +54,7 @@ with st.sidebar:
     ma_long = st.slider("Long MA Window (days)", 20, 200, 50)
     vol_window = st.slider("Volatility Window (days)", 10, 60, 21)
 
-    if st.button("🔄 Refresh Data"):
+    if st.button("🔄\u2003Refresh Data"):
         st.cache_data.clear()
         st.rerun()
 
