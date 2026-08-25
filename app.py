@@ -118,12 +118,13 @@ corr_mat = compute_correlation(con, selected_tickers)
 
 # 4) TABS
 
+# Option B: Bullet separators for a clean, modern aesthetic
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🌱  Growth & Trends",
-    "💹  Volatility & Drawdown",
-    "⛳️  Risk‑Adjusted Rankings",
-    "🧩  Sector Summary",
-    "🔋  Correlation"
+    "🌱\u2003Growth & Trends\u2003|",
+    "💹\u2003Volatility & Drawdown\u2003|",
+    "⛳️\u2003Risk‑Adjusted Rankings\u2003|",
+    "🧩\u2003Sector Summary\u2003|",
+    "🔋\u2003Correlation"
 ])
 
 # growth & trends
