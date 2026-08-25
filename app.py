@@ -118,6 +118,18 @@ corr_mat = compute_correlation(con, selected_tickers)
 
 # 4) TABS
 
+st.markdown("""
+    <style>
+    /* adding pipe separator between tabs */
+    button[data-baseweb="tab"]:not(:last-child)::after {
+        content: "|";
+        margin-left: 1.5rem;
+        color: #6c757d; /* themed colors */
+        font-weight: 300;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🌱\u2003Growth & Trends",
     "💹\u2003Volatility & Drawdown",
