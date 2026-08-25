@@ -1,5 +1,3 @@
-# PORTED CODE from the notebook: equity_analytics_sql.ipynb
-
 import duckdb
 import pandas as pd
 import yfinance as yf
@@ -12,20 +10,21 @@ def load_and_register_data(tickers, start, end):
     Download price data from Yahoo Finance, reshape to long format,
     and register it as a DuckDB table.
     """
-    # fetch live price data from yfinance
-    raw = yf.download(tickers, start=start, end=end, auto_adjust=True)["Close"]
+    raw = yf.download(tickers, start=start, end=end, auto_adjust=True)
+    if "Close" in raw:
+        raw = raw["Close"]
+    if isinstance(raw, pd.Series):
+        raw = raw.to_frame(name=tickers[0] if isinstance(tickers, list) else tickers)
+
     raw = raw.reset_index()
-    # melt from wide to long format (ticker, date, close)
     long = raw.melt(id_vars="Date", var_name="ticker", value_name="close")
     long = long.dropna(subset=["close"])
     long = long.rename(columns={"Date": "date"})
     long["date"] = pd.to_datetime(long["date"]).dt.date
 
-    # in-memory duckdb connection and register input df
     con = duckdb.connect()
     con.register("prices_raw", long)
 
-    # prices table ordered by ticker and date
     con.execute("""
         CREATE OR REPLACE TABLE prices AS
         SELECT ticker, date, close
@@ -46,15 +45,12 @@ def compute_returns(con):
         WITH r AS (
             SELECT
                 ticker, date, close,
-                -- LAG gets the previous day's close; divide to get daily return
                 close / LAG(close) OVER (PARTITION BY ticker ORDER BY date) - 1 AS daily_return
             FROM prices
         )
-        -- COALESCE replaces the first row's NULL with 0
         SELECT ticker, date, close, COALESCE(daily_return, 0) AS daily_return
         FROM r
     """)
-    # return the DataFrame for inspection (optional)
     return con.execute("SELECT * FROM returns LIMIT 5").df()
 
 
@@ -63,22 +59,18 @@ def compute_returns(con):
 def compute_moving_averages(con, ticker, ma_short=20, ma_long=50):
     """
     Calculate short- and long-term simple moving averages using window functions.
-    Derive a bullish/bearish regime signal when SMA(short) crosses SMA(long).
     """
     return con.execute("""
         WITH ma AS (
             SELECT
                 ticker, date, close,
-                -- 20-day SMA: rows between 19 preceding and current row
                 AVG(close) OVER (PARTITION BY ticker ORDER BY date
                                  ROWS BETWEEN ? PRECEDING AND CURRENT ROW) AS sma20,
-                -- 50-day SMA: rows between 49 preceding and current row
                 AVG(close) OVER (PARTITION BY ticker ORDER BY date
                                  ROWS BETWEEN ? PRECEDING AND CURRENT ROW) AS sma50
             FROM prices
             WHERE ticker = ?
         )
-        -- derive bullish/bearish market regimes
         SELECT
             ticker, date,
             ROUND(close, 2) AS px,
@@ -95,12 +87,10 @@ def compute_moving_averages(con, ticker, ma_short=20, ma_long=50):
 def compute_cumulative_growth(con):
     """
     Compute cumulative growth of $1 per ticker using log-return compounding.
-    EXP(SUM(LN(1 + daily_return))) over the full history.
     """
     return con.execute("""
         SELECT
             ticker, date,
-            -- cumulative product of (1 + daily_return) via log-sum-exp
             EXP(SUM(LN(1 + daily_return)) OVER (PARTITION BY ticker ORDER BY date)) AS growth
         FROM returns
         ORDER BY date, ticker
@@ -111,13 +101,11 @@ def compute_cumulative_growth(con):
 
 def compute_rolling_volatility(con, window=21):
     """
-    Calculate rolling annualised volatility using sample standard deviation
-    over a fixed window (default 21 trading days), annualised by sqrt(252).
+    Calculate rolling annualised volatility using sample standard deviation.
     """
     return con.execute("""
         SELECT
             ticker, date,
-            -- sample standard deviation over 21-day window, annualised
             STDDEV_SAMP(daily_return) OVER (PARTITION BY ticker ORDER BY date
                 ROWS BETWEEN ? PRECEDING AND CURRENT ROW) * SQRT(252) AS vol_21d
         FROM returns
@@ -129,18 +117,15 @@ def compute_rolling_volatility(con, window=21):
 def compute_drawdowns(con):
     """
     Calculate daily percentage drawdown relative to the running peak price.
-    Uses MAX with UNBOUNDED PRECEDING to track the all-time high.
     """
     return con.execute("""
         WITH dd AS (
             SELECT
                 ticker, date, close,
-                -- running peak: maximum close up to current date
                 MAX(close) OVER (PARTITION BY ticker ORDER BY date
                     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_peak
             FROM prices
         )
-        -- drawdown = current price / peak - 1 (always <= 0)
         SELECT ticker, date, close / running_peak - 1 AS drawdown
         FROM dd
     """).df()
@@ -170,17 +155,13 @@ def compute_max_drawdown(con):
 def compute_risk_ranking(con):
     """
     Compute annualised return, annualised volatility, and Sharpe ratio.
-    Rank tickers by Sharpe ratio using the RANK() window function.
     """
     return con.execute("""
         WITH stats AS (
             SELECT
                 ticker,
-                -- annualised return: average daily return * 252
                 AVG(daily_return) * 252 AS ann_return,
-                -- annualised volatility: daily std dev * sqrt(252)
                 STDDEV_SAMP(daily_return) * SQRT(252) AS ann_vol,
-                -- Sharpe ratio: return / volatility (risk-free rate assumed 0)
                 AVG(daily_return) / NULLIF(STDDEV_SAMP(daily_return), 0) * SQRT(252) AS sharpe
             FROM returns
             GROUP BY ticker
@@ -201,11 +182,9 @@ def compute_risk_ranking(con):
 def compute_sector_stats(con, sector_map):
     """
     Aggregate performance metrics by sector.
-    Requires a sector_map dict: {ticker: sector_name}
     """
-    # add sector column to prices and returns tables
-    con.execute("ALTER TABLE prices ADD COLUMN sector VARCHAR")
-    con.execute("ALTER TABLE returns ADD COLUMN sector VARCHAR")
+    con.execute("ALTER TABLE prices ADD COLUMN IF NOT EXISTS sector VARCHAR")
+    con.execute("ALTER TABLE returns ADD COLUMN IF NOT EXISTS sector VARCHAR")
     for ticker, sector in sector_map.items():
         con.execute(f"UPDATE prices SET sector = '{sector}' WHERE ticker = '{ticker}'")
         con.execute(f"UPDATE returns SET sector = '{sector}' WHERE ticker = '{ticker}'")
@@ -214,9 +193,7 @@ def compute_sector_stats(con, sector_map):
         SELECT
             sector,
             COUNT(DISTINCT ticker) AS n_names,
-            -- average annualised return within sector
             ROUND(AVG(daily_return) * 252, 3) AS avg_ann_return,
-            -- average annualised volatility within sector
             ROUND(STDDEV_SAMP(daily_return) * SQRT(252), 3) AS avg_ann_vol
         FROM returns
         GROUP BY sector
@@ -229,7 +206,6 @@ def compute_sector_stats(con, sector_map):
 def compute_correlation(con, tickers):
     """
     Build a pairwise correlation matrix for daily returns.
-    Uses a self-join on the returns table and the CORR aggregate.
     """
     corr_long = con.execute("""
         SELECT a.ticker AS t1, b.ticker AS t2, CORR(a.daily_return, b.daily_return) AS corr
@@ -238,7 +214,6 @@ def compute_correlation(con, tickers):
         GROUP BY a.ticker, b.ticker
     """).df()
 
-    # pivot long format to a square matrix, reindexed by the provided ticker list
     cmat = corr_long.pivot(index="t1", columns="t2", values="corr")
     cmat = cmat.reindex(index=tickers, columns=tickers)
     return cmat
