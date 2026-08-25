@@ -118,14 +118,13 @@ corr_mat = compute_correlation(con, selected_tickers)
 
 # 4) TABS
 
+# vertical dividers
 st.markdown("""
     <style>
-    /* adding pipe separator between tabs */
-    button[data-baseweb="tab"]:not(:last-child)::after {
-        content: "|";
-        margin-left: 1.5rem;
-        color: #6c757d; /* themed colors */
-        font-weight: 300;
+    button[data-testid="stTab"]:not(:last-child) {
+        border-right: 1px solid #4A4A4A !important;
+        padding-right: 1.5rem !important;
+        margin-right: 1.5rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
