@@ -35,11 +35,11 @@ TICKERS = list(UNIVERSE.keys())
 # 2) STREAMLIT CONFIG
 
 st.set_page_config(layout="wide")
-st.title("Multi‑Asset Equity Analytics Dashboard")
+st.title("Multi‑Asset Equity Analytics")
 
 # user controls
 with st.sidebar:
-    st.header("⚙️ Controls")
+    st.header("⚙️\u2003Controls")
 
     selected_tickers = st.multiselect(
         "Select Assets",
@@ -54,7 +54,7 @@ with st.sidebar:
     ma_long = st.slider("Long MA Window (days)", 20, 200, 50)
     vol_window = st.slider("Volatility Window (days)", 10, 60, 21)
 
-    if st.button("🔄 Refresh Data"):
+    if st.button("🔄\u2003Refresh Data"):
         st.cache_data.clear()
         st.rerun()
 
@@ -81,7 +81,7 @@ def load_data_cached(tickers, start, end):
         long["date"] = pd.to_datetime(long["date"]).dt.date
         return long
     except Exception as e:
-        st.error(f"🚨 Data download failed: {e}")
+        st.error(f"🚨\u2003Data download failed: {e}")
         st.stop()
 
 def load_data(tickers, start, end):
@@ -119,11 +119,11 @@ corr_mat = compute_correlation(con, selected_tickers)
 # 4) TABS
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🌱  Growth & Trends",
-    "💹  Volatility & Drawdown",
-    "⛳️  Risk‑Adjusted Rankings",
-    "🧩  Sector Summary",
-    "🔋  Correlation"
+    "🌱\u2003Growth & Trends",
+    "💹\u2003Volatility & Drawdown",
+    "⛳️\u2003Risk‑Adjusted Rankings",
+    "🧩\u2003Sector Summary",
+    "🔋\u2003Correlation"
 ])
 
 # growth & trends
