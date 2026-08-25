@@ -1,6 +1,6 @@
 # **Quantitative Equity Analytics Engine (Live | WIP 🏗️)**
 
-> A lightweight multi-asset equity engine and interactive dashboard powered by DuckDB SQL and Streamlit :) See Roadmap below for future additions
+> A lightweight multi-asset equity engine and interactive dashboard powered by Python embedded DuckDB SQL :) See Roadmap below for future additions
 
 ---
 
@@ -15,7 +15,7 @@ WebApp: Live, deployed multi-asset Streamlit UI executing DuckDB SQL analytics (
 **Roadmap**
 
 Notebook:
-- [x] Build core DuckDB analytics engine for multi-asset equity analysis
+- [x] Build core Python/DuckDB analytics engine for multi-asset equity analysis
 - [ ] Add SPY benchmark to calculate Jensen's Alpha and Beta
 - [ ] Implement an automated backtest for the SQL trend-regime signal
 
