@@ -1,9 +1,6 @@
 # Multi-Asset Equity Analytics Dashboard
 # Interactive web interface for the DuckDB SQL analytics engine
 
-
-# 0) BASIC
-
 import yfinance as yf
 import streamlit as st
 import pandas as pd
@@ -24,7 +21,7 @@ from queries import (
 )
 
 
-# 1) UNIVERSE DEF (hardcoded sector map as in notebook)
+# 1) UNIVERSE DEF
 
 UNIVERSE = {
     "AAPL": "Technology", "MSFT": "Technology", "NVDA": "Technology",
@@ -44,25 +41,19 @@ st.title("Multi‑Asset Equity Analytics Dashboard")
 with st.sidebar:
     st.header("⚙️ Controls")
 
-    # asset selection (multi-select)
     selected_tickers = st.multiselect(
         "Select Assets",
         options=TICKERS,
         default=TICKERS
     )
 
-    # date range
     start_date = st.date_input("Start Date", value=pd.to_datetime("2023-01-01"))
     end_date = st.date_input("End Date", value=pd.to_datetime("today"))
 
-    # moving average windows
     ma_short = st.slider("Short MA Window (days)", 5, 50, 20)
     ma_long = st.slider("Long MA Window (days)", 20, 200, 50)
-
-    # volatility window
     vol_window = st.slider("Volatility Window (days)", 10, 60, 21)
 
-    # refresh / clear cache
     if st.button("🔄 Refresh Data"):
         st.cache_data.clear()
         st.rerun()
@@ -71,12 +62,19 @@ with st.sidebar:
 
 @st.cache_data
 def load_data_cached(tickers, start, end):
-    # download and cache the raw price data as a df.
     try:
-        # download data from yf
-        df = yf.download(tickers, start=start, end=end, auto_adjust=True)["Close"]
+        raw = yf.download(tickers, start=start, end=end, auto_adjust=True)
+        if isinstance(raw.columns, pd.MultiIndex):
+            df = raw["Close"].copy() if "Close" in raw.columns.levels[0] else raw.xs("Close", axis=1, level=0)
+        elif "Close" in raw.columns:
+            df = raw[["Close"]].copy() if isinstance(raw["Close"], pd.Series) else raw["Close"].copy()
+        else:
+            df = raw.copy()
+
+        if isinstance(df, pd.Series):
+            df = df.to_frame()
+
         df = df.reset_index()
-        # melt to long format
         long = df.melt(id_vars="Date", var_name="ticker", value_name="close")
         long = long.dropna(subset=["close"])
         long = long.rename(columns={"Date": "date"})
@@ -87,14 +85,11 @@ def load_data_cached(tickers, start, end):
         st.stop()
 
 def load_data(tickers, start, end):
-    # get the cached DataFrame
     df = load_data_cached(tickers, start, end)
     
-    # create a fresh duckDB connection (not cached)
     con = duckdb.connect()
     con.register("prices_raw", df)
     
-    # create the prices table
     con.execute("""
         CREATE OR REPLACE TABLE prices AS
         SELECT ticker, date, close
@@ -102,45 +97,26 @@ def load_data(tickers, start, end):
         ORDER BY ticker, date
     """)
     
-    # compute returns
     compute_returns(con)
-    
     return con
 
-# guard against empty selection
 if not selected_tickers:
     st.warning("Please select at least one asset from the sidebar.")
     st.stop()
 
 con = load_data(selected_tickers, start_date, end_date)
 
-# compute all metrics (cached per parameters)
-def get_growth(_con):
-    return compute_cumulative_growth(_con)
-def get_volatility(_con, window):
-    return compute_rolling_volatility(_con, window)
-def get_drawdowns(_con):
-    return compute_drawdowns(_con)
-def get_max_drawdown(_con):
-    return compute_max_drawdown(_con)
-def get_ranking(_con):
-    return compute_risk_ranking(_con)
-def get_sector_stats(_con, sector_map):
-    return compute_sector_stats(_con, sector_map)
-def get_correlation(_con, tickers):
-    return compute_correlation(_con, tickers)
-
-# fetch all dataframes
-growth_df = get_growth(con)
-vol_df = get_volatility(con, vol_window)
-dd_df = get_drawdowns(con)
-maxdd_df = get_max_drawdown(con)
-rank_df = get_ranking(con)
-sector_df = get_sector_stats(con, UNIVERSE)
-corr_mat = get_correlation(con, selected_tickers)
+# compute all metrics
+growth_df = compute_cumulative_growth(con)
+vol_df = compute_rolling_volatility(con, vol_window)
+dd_df = compute_drawdowns(con)
+maxdd_df = compute_max_drawdown(con)
+rank_df = compute_risk_ranking(con)
+sector_df = compute_sector_stats(con, UNIVERSE)
+corr_mat = compute_correlation(con, selected_tickers)
 
 
-# 4) TABS: organise output by theme
+# 4) TABS
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🌱  Growth & Trends",
@@ -150,73 +126,73 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🔋  Correlation"
 ])
 
-# growth & trends (sections 2 & 3 from notebook)
+# growth & trends
 with tab1:
-    # cumulative growth
     st.subheader("Cumulative Growth of $1")
     growth_pivot = growth_df.pivot(index="date", columns="ticker", values="growth")
-    st.line_chart(growth_pivot[selected_tickers])
+    valid_cols = [t for t in selected_tickers if t in growth_pivot.columns]
+    st.line_chart(growth_pivot[valid_cols] if valid_cols else growth_pivot)
 
-    # moving averages + regime signal
     st.subheader("Moving Averages & Regime Signal")
-    ticker_ma = st.selectbox("Select ticker for MA plot", selected_tickers, key="ma_ticker")
-    ma_df = compute_moving_averages(con, ticker_ma, ma_short, ma_long)
+    ticker_ma = st.selectbox("Select ticker for MA plot", valid_cols if valid_cols else selected_tickers, key="ma_ticker")
+    
+    if ticker_ma:
+        ma_df = compute_moving_averages(con, ticker_ma, ma_short, ma_long)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(ma_df["date"], ma_df["px"], label="Price", linewidth=1.5)
-    ax.plot(ma_df["date"], ma_df["sma20"], label=f"SMA{ma_short}", linestyle="--")
-    ax.plot(ma_df["date"], ma_df["sma50"], label=f"SMA{ma_long}", linestyle="--")
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(ma_df["date"], ma_df["px"], label="Price", linewidth=1.5)
+        ax.plot(ma_df["date"], ma_df["sma20"], label=f"SMA{ma_short}", linestyle="--")
+        ax.plot(ma_df["date"], ma_df["sma50"], label=f"SMA{ma_long}", linestyle="--")
 
-    # shade bullish (green) / bearish (red) regimes
-    for i in range(len(ma_df) - 1):
-        color = "green" if ma_df.iloc[i]["regime"] == "bullish" else "red"
-        ax.axvspan(ma_df.iloc[i]["date"], ma_df.iloc[i+1]["date"], alpha=0.1, color=color)
+        for i in range(len(ma_df) - 1):
+            color = "green" if ma_df.iloc[i]["regime"] == "bullish" else "red"
+            ax.axvspan(ma_df.iloc[i]["date"], ma_df.iloc[i+1]["date"], alpha=0.1, color=color)
 
-    ax.legend()
-    ax.set_title(f"{ticker_ma} – Price, Moving Averages & Regime")
-    ax.grid(True, alpha=0.3)
-    st.pyplot(fig)
+        ax.legend()
+        ax.set_title(f"{ticker_ma} – Price, Moving Averages & Regime")
+        ax.grid(True, alpha=0.3)
+        st.pyplot(fig)
 
-# volatility & drawdown (sections 4 & 5)
+# volatility & drawdown
 with tab2:
-    # rolling volatility
     st.subheader("Rolling Annualised Volatility")
     vol_pivot = vol_df.pivot(index="date", columns="ticker", values="vol_21d")
-    st.line_chart(vol_pivot[selected_tickers])
+    v_cols = [t for t in selected_tickers if t in vol_pivot.columns]
+    st.line_chart(vol_pivot[v_cols] if v_cols else vol_pivot)
 
-    # drawdown
     st.subheader("Drawdown from Running Peak")
     dd_pivot = dd_df.pivot(index="date", columns="ticker", values="drawdown")
-    st.area_chart(dd_pivot[selected_tickers])
+    d_cols = [t for t in selected_tickers if t in dd_pivot.columns]
+    st.area_chart(dd_pivot[d_cols] if d_cols else dd_pivot)
 
     st.subheader("Maximum Drawdown per Asset")
     st.dataframe(maxdd_df, use_container_width=True)
 
-# risk-adjusted rankings (section 6)
+# risk-adjusted rankings
 with tab3:
     st.subheader("Risk‑Adjusted Leaderboard")
     st.dataframe(rank_df, use_container_width=True)
 
-    # sharpe ratio bar chart
-    fig, ax = plt.subplots(figsize=(8, 4))
-    sns.barplot(data=rank_df, x="ticker", y="sharpe", palette="viridis", ax=ax)
-    ax.axhline(0, color="black", linestyle="--", alpha=0.5)
-    ax.set_title("Sharpe Ratio by Asset")
-    st.pyplot(fig)
+    if not rank_df.empty:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.barplot(data=rank_df, x="ticker", y="sharpe", palette="viridis", ax=ax)
+        ax.axhline(0, color="black", linestyle="--", alpha=0.5)
+        ax.set_title("Sharpe Ratio by Asset")
+        st.pyplot(fig)
 
-# sector summary (section 7)
+# sector summary
 with tab4:
     st.subheader("Sector Performance Summary")
     st.dataframe(sector_df, use_container_width=True)
 
-    # avg annual return by sector
-    fig, ax = plt.subplots(figsize=(8, 4))
-    sns.barplot(data=sector_df, x="sector", y="avg_ann_return", palette="coolwarm", ax=ax)
-    ax.set_title("Average Annual Return by Sector")
-    ax.tick_params(axis='x', rotation=45)
-    st.pyplot(fig)
+    if not sector_df.empty:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.barplot(data=sector_df, x="sector", y="avg_ann_return", palette="coolwarm", ax=ax)
+        ax.set_title("Average Annual Return by Sector")
+        ax.tick_params(axis='x', rotation=45)
+        st.pyplot(fig)
 
-# correlation (section 8)
+# correlation
 with tab5:
     st.subheader("Return Correlation Matrix")
     if corr_mat.empty or corr_mat.shape[0] < 2:
