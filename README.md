@@ -1,6 +1,6 @@
 # **Quantitative Equity Analytics Engine (Live | WIP 🏗️)**
 
-> A lightweight multi-asset equity engine and interactive dashboard powered by Python embedded DuckDB SQL :) See Roadmap below for future additions
+A lightweight multi-asset equity engine and interactive dashboard powered by Python embedded DuckDB SQL :) See Roadmap below for future additions
 
 ---
 
